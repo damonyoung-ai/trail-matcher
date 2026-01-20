@@ -148,8 +148,8 @@ export async function findRouteCandidates(
   inputCoords: Coordinate[]
 ): Promise<RouteCandidate[]> {
   const candidates: RouteCandidate[] = [];
-  const maxCandidates = 600;
-  const maxDepth = 220;
+  const maxCandidates = 150;
+  const maxDepth = 120;
 
   for (const start of startNodes) {
     if (candidates.length >= maxCandidates) break;
