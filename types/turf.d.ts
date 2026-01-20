@@ -1,0 +1,11 @@
+declare module "@turf/along";
+declare module "@turf/bbox";
+declare module "@turf/distance";
+declare module "@turf/helpers";
+declare module "@turf/length";
+declare module "@turf/line-slice-along";
+declare module "@turf/line-split";
+declare module "@turf/nearest-point-on-line";
+declare module "@turf/point-to-line-distance";
+declare module "@turf/simplify";
+declare module "@mapbox/togeojson";
