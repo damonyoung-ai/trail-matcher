@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     const candidates = radiusFiltered
       .filter((trail) => {
         const dist = computeDistanceMeters(trail.coordinates);
-        return dist > inputDistance * 0.5 && dist < inputDistance * 1.6;
+        return dist > inputDistance * 0.8 && dist < inputDistance * 1.2;
       })
       .slice(0, 80);
 

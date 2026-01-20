@@ -72,7 +72,7 @@ export function scoreRoute(input: RouteStats, candidate: RouteStats, inputCoords
   const distScore = 1 - Math.min(1, distDiff / Math.max(1000, input.distanceMeters || 1));
   const shapeScore = shapeSimilarity(inputCoords, candidateCoords);
 
-  const total = (elevationScore * 0.55 + gainScore * 0.2 + distScore * 0.15 + shapeScore * 0.1) * 100;
+  const total = (elevationScore * 0.4 + gainScore * 0.3 + distScore * 0.2 + shapeScore * 0.1) * 100;
   return {
     total: Math.round(total),
     elevationProfile: Math.round(elevationScore * 100),
