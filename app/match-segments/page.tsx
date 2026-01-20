@@ -48,6 +48,7 @@ export default function MatchSegmentsPage() {
   const [distanceRange, setDistanceRange] = useState([4, 6]);
   const [gainRange, setGainRange] = useState([900, 1200]);
   const [gradeRange, setGradeRange] = useState([4, 12]);
+  const [gainTolerancePct, setGainTolerancePct] = useState(20);
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>({
     lat: 39.7392,
     lng: -104.9903
@@ -94,7 +95,8 @@ export default function MatchSegmentsPage() {
         preference,
         inputCoordinates: inputCoords || undefined,
         center,
-        radiusMiles: radius
+        radiusMiles: radius,
+        gainTolerancePct
       })
     });
     const data = await resp.json();
@@ -164,6 +166,18 @@ export default function MatchSegmentsPage() {
                     className="w-20 border rounded px-2 py-1"
                   />
                 </div>
+              </div>
+              <div>
+                <label className="text-xs uppercase tracking-wide text-pine-600">Gain tolerance (%)</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={gainTolerancePct}
+                  onChange={(e) => setGainTolerancePct(Number(e.target.value))}
+                  className="w-24 border rounded px-2 py-1"
+                />
+                <div className="text-xs text-pine-600 mt-1">Applies when an input route is provided.</div>
               </div>
               <div>
                 <label className="text-xs uppercase tracking-wide text-pine-600">Grade range (%)</label>

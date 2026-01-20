@@ -45,6 +45,7 @@ export default function MatchRoutesPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [status, setStatus] = useState('');
   const [radius, setRadius] = useState(25);
+  const [gainTolerancePct, setGainTolerancePct] = useState(20);
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
@@ -70,7 +71,13 @@ export default function MatchRoutesPage() {
     const resp = await fetch('/api/match-routes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ coordinates: inputCoords, bbox, center: nextCenter, radiusMiles: radius })
+      body: JSON.stringify({
+        coordinates: inputCoords,
+        bbox,
+        center: nextCenter,
+        radiusMiles: radius,
+        gainTolerancePct
+      })
     });
     const data = await resp.json();
     if (!resp.ok || data.error) {
@@ -116,6 +123,18 @@ export default function MatchRoutesPage() {
                 className="w-full"
               />
               <div className="text-sm text-pine-700">{radius} miles from the center point</div>
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-wide text-pine-600">Gain tolerance (%)</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={gainTolerancePct}
+                onChange={(e) => setGainTolerancePct(Number(e.target.value))}
+                className="w-24 border rounded px-2 py-1"
+              />
+              <div className="text-xs text-pine-600 mt-1">Max percent difference vs input gain.</div>
             </div>
             <button
               className="rounded-full bg-sky-500 text-white px-4 py-2 text-sm"

@@ -12,6 +12,7 @@ export async function POST(req: Request) {
     const bbox = body.bbox as [number, number, number, number];
     const center = body.center as { lat: number; lng: number } | undefined;
     const radiusMiles = Number(body.radiusMiles || 0);
+    const gainTolerancePct = Number(body.gainTolerancePct || 0);
     const interval = Number(body.intervalMeters || 40);
     if (!inputCoords || !bbox) {
       return NextResponse.json({ error: 'Missing input coordinates or bbox.' }, { status: 400 });
@@ -27,6 +28,8 @@ export async function POST(req: Request) {
         : trails;
 
     const inputDistance = inputStats.distanceMeters;
+    const inputGain = inputStats.elevation.gain;
+    const gainTolerance = gainTolerancePct > 0 ? (inputGain * gainTolerancePct) / 100 : 0;
     const candidates = radiusFiltered
       .filter((trail) => {
         const dist = computeDistanceMeters(trail.coordinates);
@@ -40,6 +43,10 @@ export async function POST(req: Request) {
       const elevations = await fetchElevationSamples(trailCoords, interval);
       const stats = computeRouteStats(trailCoords, elevations);
       const score = scoreRoute(inputStats, stats, inputCoords, trailCoords);
+      if (gainTolerancePct > 0 && inputGain > 0) {
+        const gainDiff = Math.abs(stats.elevation.gain - inputGain);
+        if (gainDiff > gainTolerance) continue;
+      }
       results.push({
         id: trail.id,
         name: trail.name,
