@@ -18,13 +18,24 @@ function decodeRoute(param: string | null) {
   }
 }
 
-function padBBox(bbox: [number, number, number, number], radiusMiles: number): [number, number, number, number] {
-  const [minLng, minLat, maxLng, maxLat] = bbox;
+function bboxFromCenter(
+  center: { lat: number; lng: number },
+  radiusMiles: number
+): [number, number, number, number] {
   const radiusKm = radiusMiles * 1.60934;
   const latPad = radiusKm / 111;
-  const avgLat = (minLat + maxLat) / 2;
-  const lngPad = radiusKm / (111 * Math.cos((avgLat * Math.PI) / 180));
-  return [minLng - lngPad, minLat - latPad, maxLng + lngPad, maxLat + latPad];
+  const lngPad = radiusKm / (111 * Math.cos((center.lat * Math.PI) / 180));
+  return [center.lng - lngPad, center.lat - latPad, center.lng + lngPad, center.lat + latPad];
+}
+
+function centerFromCoords(coords: Coordinate[]): { lat: number; lng: number } {
+  const lats = coords.map((c) => c[1]);
+  const lngs = coords.map((c) => c[0]);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  return { lat: (minLat + maxLat) / 2, lng: (minLng + maxLng) / 2 };
 }
 
 export default function MatchRoutesPage() {
@@ -34,7 +45,7 @@ export default function MatchRoutesPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [status, setStatus] = useState('');
   const [radius, setRadius] = useState(25);
-  const [mapBbox, setMapBbox] = useState<[number, number, number, number] | null>(null);
+  const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -47,14 +58,15 @@ export default function MatchRoutesPage() {
     setInputCoords(route.coordinates);
     setInputStats(route.stats);
     setRadius(radiusParam);
+    setCenter(centerFromCoords(route.coordinates));
   }, []);
 
   const selected = useMemo(() => matches.find((m) => m.id === selectedId) || matches[0], [matches, selectedId]);
 
-  async function runSearch(nextBbox: [number, number, number, number]) {
+  async function runSearch(nextCenter: { lat: number; lng: number }) {
     if (!inputCoords) return;
     setStatus('Finding elevation-first matches…');
-    const bbox = padBBox(nextBbox, radius);
+    const bbox = bboxFromCenter(nextCenter, radius);
     const resp = await fetch('/api/match-routes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -69,11 +81,6 @@ export default function MatchRoutesPage() {
     setStatus(`Found ${data.matches.length} matches.`);
   }
 
-  useEffect(() => {
-    if (!mapBbox || !inputCoords || matches.length > 0 || status) return;
-    runSearch(mapBbox);
-  }, [mapBbox, inputCoords]);
-
   return (
     <Shell>
       <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
@@ -82,7 +89,8 @@ export default function MatchRoutesPage() {
             primary={inputCoords || undefined}
             secondary={selected?.coordinates}
             routes={matches.map((m) => m.coordinates)}
-            onBoundsChange={setMapBbox}
+            centerPoint={center}
+            onMapClick={setCenter}
           />
           <ElevationCharts
             profileA={inputStats?.profile}
@@ -95,7 +103,7 @@ export default function MatchRoutesPage() {
           <StatsCard title="Input Route" stats={inputStats || undefined} />
           {selected && <StatsCard title="Selected Match" stats={selected.stats} />}
           <div className="rounded-2xl border border-sandstone-200 bg-white/80 p-4 space-y-3">
-            <div className="text-sm text-pine-700">Drag the map to set the search area.</div>
+            <div className="text-sm text-pine-700">Click the map to set the search center.</div>
             <div>
               <label className="text-xs uppercase tracking-wide text-pine-600">Search radius (mi)</label>
               <input
@@ -106,11 +114,11 @@ export default function MatchRoutesPage() {
                 onChange={(e) => setRadius(Number(e.target.value))}
                 className="w-full"
               />
-              <div className="text-sm text-pine-700">{radius} miles beyond the map bounds</div>
+              <div className="text-sm text-pine-700">{radius} miles from the center point</div>
             </div>
             <button
               className="rounded-full bg-sky-500 text-white px-4 py-2 text-sm"
-              onClick={() => mapBbox && runSearch(mapBbox)}
+              onClick={() => center && runSearch(center)}
             >
               Search this area
             </button>

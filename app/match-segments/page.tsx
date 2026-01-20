@@ -18,13 +18,24 @@ function decodeRoute(param: string | null) {
   }
 }
 
-function padBBox(bbox: [number, number, number, number], radiusMiles: number): [number, number, number, number] {
-  const [minLng, minLat, maxLng, maxLat] = bbox;
+function bboxFromCenter(
+  center: { lat: number; lng: number },
+  radiusMiles: number
+): [number, number, number, number] {
   const radiusKm = radiusMiles * 1.60934;
   const latPad = radiusKm / 111;
-  const avgLat = (minLat + maxLat) / 2;
-  const lngPad = radiusKm / (111 * Math.cos((avgLat * Math.PI) / 180));
-  return [minLng - lngPad, minLat - latPad, maxLng + lngPad, maxLat + latPad];
+  const lngPad = radiusKm / (111 * Math.cos((center.lat * Math.PI) / 180));
+  return [center.lng - lngPad, center.lat - latPad, center.lng + lngPad, center.lat + latPad];
+}
+
+function centerFromCoords(coords: Coordinate[]): { lat: number; lng: number } {
+  const lats = coords.map((c) => c[1]);
+  const lngs = coords.map((c) => c[0]);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  return { lat: (minLat + maxLat) / 2, lng: (minLng + maxLng) / 2 };
 }
 
 export default function MatchSegmentsPage() {
@@ -37,7 +48,10 @@ export default function MatchSegmentsPage() {
   const [distanceRange, setDistanceRange] = useState([4, 6]);
   const [gainRange, setGainRange] = useState([900, 1200]);
   const [gradeRange, setGradeRange] = useState([4, 12]);
-  const [mapBbox, setMapBbox] = useState<[number, number, number, number] | null>(null);
+  const [center, setCenter] = useState<{ lat: number; lng: number } | null>({
+    lat: 39.7392,
+    lng: -104.9903
+  });
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -47,6 +61,7 @@ export default function MatchSegmentsPage() {
     if (route) {
       setInputCoords(route.coordinates);
       setInputStats(route.stats);
+      setCenter(centerFromCoords(route.coordinates));
     }
   }, []);
 
@@ -57,9 +72,9 @@ export default function MatchSegmentsPage() {
 
   async function handleFind() {
     setStatus('Searching trail network…');
-    const bbox = mapBbox ? padBBox(mapBbox, radius) : null;
+    const bbox = center ? bboxFromCenter(center, radius) : null;
     if (!bbox) {
-      setStatus('Drag the map to set a search area.');
+      setStatus('Click the map to set a search center.');
       return;
     }
     const preference: SegmentPreference = {
@@ -93,7 +108,8 @@ export default function MatchSegmentsPage() {
             primary={inputCoords || selected?.coordinates || undefined}
             secondary={inputCoords ? selected?.coordinates : undefined}
             routes={segments.map((s) => s.coordinates)}
-            onBoundsChange={setMapBbox}
+            centerPoint={center}
+            onMapClick={setCenter}
           />
           <ElevationCharts
             profileA={inputStats?.profile}
@@ -162,7 +178,7 @@ export default function MatchSegmentsPage() {
               </div>
               <div>
                 <div className="text-xs uppercase tracking-wide text-pine-600">Search area</div>
-                <div className="text-sm text-pine-700">Drag the map to set the search area.</div>
+                <div className="text-sm text-pine-700">Click the map to set the search center.</div>
               </div>
               <div>
                 <label className="text-xs uppercase tracking-wide text-pine-600">Search radius (mi)</label>
@@ -174,7 +190,7 @@ export default function MatchSegmentsPage() {
                   onChange={(e) => setRadius(Number(e.target.value))}
                   className="w-full"
                 />
-                <div className="text-sm text-pine-700">{radius} miles beyond the map bounds</div>
+                <div className="text-sm text-pine-700">{radius} miles from the center point</div>
               </div>
             </div>
             <button

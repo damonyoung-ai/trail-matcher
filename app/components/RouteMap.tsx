@@ -32,13 +32,17 @@ export function RouteMap({
   secondary,
   routes,
   height = 420,
-  onBoundsChange
+  onBoundsChange,
+  centerPoint,
+  onMapClick
 }: {
   primary?: Coordinate[];
   secondary?: Coordinate[];
   routes?: Coordinate[][];
   height?: number;
   onBoundsChange?: (bbox: [number, number, number, number]) => void;
+  centerPoint?: { lat: number; lng: number } | null;
+  onMapClick?: (center: { lat: number; lng: number }) => void;
 }) {
   const mapRef = useRef<any>(null);
   const first = primary?.[0] || secondary?.[0];
@@ -71,6 +75,10 @@ export function RouteMap({
         mapStyle={osmStyle}
         onLoad={emitBounds}
         onMoveEnd={emitBounds}
+        onClick={(e) => {
+          if (!onMapClick) return;
+          onMapClick({ lat: e.lngLat.lat, lng: e.lngLat.lng });
+        }}
       >
         <NavigationControl position="top-right" />
         {primary && (
@@ -106,6 +114,27 @@ export function RouteMap({
             data={{ type: 'Feature', geometry: { type: 'LineString', coordinates: secondary } }}
           >
             <Layer {...lineLayer('secondary-line', '#e07a5f', 3)} />
+          </Source>
+        )}
+        {centerPoint && (
+          <Source
+            id="center-point"
+            type="geojson"
+            data={{
+              type: 'Feature',
+              geometry: { type: 'Point', coordinates: [centerPoint.lng, centerPoint.lat] }
+            }}
+          >
+            <Layer
+              id="center-point-layer"
+              type="circle"
+              paint={{
+                'circle-color': '#0f5b45',
+                'circle-radius': 6,
+                'circle-stroke-color': '#ffffff',
+                'circle-stroke-width': 2
+              }}
+            />
           </Source>
         )}
       </Map>
