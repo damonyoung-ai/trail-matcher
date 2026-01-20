@@ -18,28 +18,13 @@ function decodeRoute(param: string | null) {
   }
 }
 
-function expandBBox(coords: Coordinate[], radiusMiles: number): [number, number, number, number] {
-  const lats = coords.map((c) => c[1]);
-  const lngs = coords.map((c) => c[0]);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs);
-  const maxLng = Math.max(...lngs);
+function padBBox(bbox: [number, number, number, number], radiusMiles: number): [number, number, number, number] {
+  const [minLng, minLat, maxLng, maxLat] = bbox;
   const radiusKm = radiusMiles * 1.60934;
   const latPad = radiusKm / 111;
   const avgLat = (minLat + maxLat) / 2;
   const lngPad = radiusKm / (111 * Math.cos((avgLat * Math.PI) / 180));
   return [minLng - lngPad, minLat - latPad, maxLng + lngPad, maxLat + latPad];
-}
-
-function bboxFromCenter(
-  center: { lat: number; lng: number },
-  radiusMiles: number
-): [number, number, number, number] {
-  const radiusKm = radiusMiles * 1.60934;
-  const latPad = radiusKm / 111;
-  const lngPad = radiusKm / (111 * Math.cos((center.lat * Math.PI) / 180));
-  return [center.lng - lngPad, center.lat - latPad, center.lng + lngPad, center.lat + latPad];
 }
 
 export default function MatchSegmentsPage() {
@@ -52,7 +37,7 @@ export default function MatchSegmentsPage() {
   const [distanceRange, setDistanceRange] = useState([4, 6]);
   const [gainRange, setGainRange] = useState([900, 1200]);
   const [gradeRange, setGradeRange] = useState([4, 12]);
-  const [center, setCenter] = useState({ lat: 39.7392, lng: -104.9903 });
+  const [mapBbox, setMapBbox] = useState<[number, number, number, number] | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -72,7 +57,11 @@ export default function MatchSegmentsPage() {
 
   async function handleFind() {
     setStatus('Searching trail network…');
-    const bbox = inputCoords ? expandBBox(inputCoords, radius) : bboxFromCenter(center, radius);
+    const bbox = mapBbox ? padBBox(mapBbox, radius) : null;
+    if (!bbox) {
+      setStatus('Drag the map to set a search area.');
+      return;
+    }
     const preference: SegmentPreference = {
       minDistanceMeters: distanceRange[0] * 1609.34,
       maxDistanceMeters: distanceRange[1] * 1609.34,
@@ -103,6 +92,8 @@ export default function MatchSegmentsPage() {
           <RouteMap
             primary={inputCoords || selected?.coordinates || undefined}
             secondary={inputCoords ? selected?.coordinates : undefined}
+            routes={segments.map((s) => s.coordinates)}
+            onBoundsChange={setMapBbox}
           />
           <ElevationCharts
             profileA={inputStats?.profile}
@@ -170,24 +161,8 @@ export default function MatchSegmentsPage() {
                 </div>
               </div>
               <div>
-                <label className="text-xs uppercase tracking-wide text-pine-600">Search center</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    step="0.0001"
-                    value={center.lat}
-                    onChange={(e) => setCenter({ ...center, lat: Number(e.target.value) })}
-                    className="w-28 border rounded px-2 py-1"
-                  />
-                  <input
-                    type="number"
-                    step="0.0001"
-                    value={center.lng}
-                    onChange={(e) => setCenter({ ...center, lng: Number(e.target.value) })}
-                    className="w-28 border rounded px-2 py-1"
-                  />
-                </div>
-                <div className="text-xs text-pine-600 mt-1">Lat / Lng</div>
+                <div className="text-xs uppercase tracking-wide text-pine-600">Search area</div>
+                <div className="text-sm text-pine-700">Drag the map to set the search area.</div>
               </div>
               <div>
                 <label className="text-xs uppercase tracking-wide text-pine-600">Search radius (mi)</label>
@@ -199,7 +174,7 @@ export default function MatchSegmentsPage() {
                   onChange={(e) => setRadius(Number(e.target.value))}
                   className="w-full"
                 />
-                <div className="text-sm text-pine-700">{radius} miles</div>
+                <div className="text-sm text-pine-700">{radius} miles beyond the map bounds</div>
               </div>
             </div>
             <button

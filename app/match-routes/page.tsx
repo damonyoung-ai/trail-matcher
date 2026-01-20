@@ -18,13 +18,8 @@ function decodeRoute(param: string | null) {
   }
 }
 
-function expandBBox(coords: Coordinate[], radiusMiles: number): [number, number, number, number] {
-  const lats = coords.map((c) => c[1]);
-  const lngs = coords.map((c) => c[0]);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs);
-  const maxLng = Math.max(...lngs);
+function padBBox(bbox: [number, number, number, number], radiusMiles: number): [number, number, number, number] {
+  const [minLng, minLat, maxLng, maxLat] = bbox;
   const radiusKm = radiusMiles * 1.60934;
   const latPad = radiusKm / 111;
   const avgLat = (minLat + maxLat) / 2;
@@ -38,44 +33,57 @@ export default function MatchRoutesPage() {
   const [matches, setMatches] = useState<TrailCandidate[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [status, setStatus] = useState('');
+  const [radius, setRadius] = useState(25);
+  const [mapBbox, setMapBbox] = useState<[number, number, number, number] | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const route = decodeRoute(params.get('route'));
-    const radius = Number(params.get('radius') || 25);
+    const radiusParam = Number(params.get('radius') || 25);
     if (!route) {
       setStatus('Missing route data. Go back to upload.');
       return;
     }
     setInputCoords(route.coordinates);
     setInputStats(route.stats);
-
-    const bbox = expandBBox(route.coordinates, radius);
-    setStatus('Finding elevation-first matches…');
-    fetch('/api/match-routes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ coordinates: route.coordinates, bbox })
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.error) {
-          setStatus(data.error);
-          return;
-        }
-        setMatches(data.matches);
-        setStatus(`Found ${data.matches.length} matches.`);
-      })
-      .catch(() => setStatus('Match failed.'));
+    setRadius(radiusParam);
   }, []);
 
   const selected = useMemo(() => matches.find((m) => m.id === selectedId) || matches[0], [matches, selectedId]);
+
+  async function runSearch(nextBbox: [number, number, number, number]) {
+    if (!inputCoords) return;
+    setStatus('Finding elevation-first matches…');
+    const bbox = padBBox(nextBbox, radius);
+    const resp = await fetch('/api/match-routes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ coordinates: inputCoords, bbox })
+    });
+    const data = await resp.json();
+    if (!resp.ok || data.error) {
+      setStatus(data.error || 'Match failed.');
+      return;
+    }
+    setMatches(data.matches);
+    setStatus(`Found ${data.matches.length} matches.`);
+  }
+
+  useEffect(() => {
+    if (!mapBbox || !inputCoords || matches.length > 0 || status) return;
+    runSearch(mapBbox);
+  }, [mapBbox, inputCoords]);
 
   return (
     <Shell>
       <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
         <section className="space-y-6">
-          <RouteMap primary={inputCoords || undefined} secondary={selected?.coordinates} />
+          <RouteMap
+            primary={inputCoords || undefined}
+            secondary={selected?.coordinates}
+            routes={matches.map((m) => m.coordinates)}
+            onBoundsChange={setMapBbox}
+          />
           <ElevationCharts
             profileA={inputStats?.profile}
             profileB={selected?.stats.profile}
@@ -86,7 +94,28 @@ export default function MatchRoutesPage() {
         <aside className="space-y-4">
           <StatsCard title="Input Route" stats={inputStats || undefined} />
           {selected && <StatsCard title="Selected Match" stats={selected.stats} />}
-          <div className="text-sm text-pine-600">{status}</div>
+          <div className="rounded-2xl border border-sandstone-200 bg-white/80 p-4 space-y-3">
+            <div className="text-sm text-pine-700">Drag the map to set the search area.</div>
+            <div>
+              <label className="text-xs uppercase tracking-wide text-pine-600">Search radius (mi)</label>
+              <input
+                type="range"
+                min={5}
+                max={60}
+                value={radius}
+                onChange={(e) => setRadius(Number(e.target.value))}
+                className="w-full"
+              />
+              <div className="text-sm text-pine-700">{radius} miles beyond the map bounds</div>
+            </div>
+            <button
+              className="rounded-full bg-sky-500 text-white px-4 py-2 text-sm"
+              onClick={() => mapBbox && runSearch(mapBbox)}
+            >
+              Search this area
+            </button>
+            <div className="text-sm text-pine-600">{status}</div>
+          </div>
           <div className="space-y-3 max-h-[520px] overflow-auto pr-2">
             {matches.map((match) => (
               <MatchCard key={match.id} match={match} onSelect={setSelectedId} />
