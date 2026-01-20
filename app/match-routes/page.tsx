@@ -91,6 +91,7 @@ export default function MatchRoutesPage() {
             routes={matches.map((m) => m.coordinates)}
             centerPoint={center}
             onMapClick={setCenter}
+            radiusMiles={radius}
           />
           <ElevationCharts
             profileA={inputStats?.profile}

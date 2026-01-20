@@ -110,6 +110,7 @@ export default function MatchSegmentsPage() {
             routes={segments.map((s) => s.coordinates)}
             centerPoint={center}
             onMapClick={setCenter}
+            radiusMiles={radius}
           />
           <ElevationCharts
             profileA={inputStats?.profile}
