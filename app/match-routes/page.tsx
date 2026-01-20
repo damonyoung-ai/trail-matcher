@@ -70,7 +70,7 @@ export default function MatchRoutesPage() {
     const resp = await fetch('/api/match-routes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ coordinates: inputCoords, bbox })
+      body: JSON.stringify({ coordinates: inputCoords, bbox, center: nextCenter, radiusMiles: radius })
     });
     const data = await resp.json();
     if (!resp.ok || data.error) {

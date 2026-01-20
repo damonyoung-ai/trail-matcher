@@ -89,7 +89,13 @@ export default function MatchSegmentsPage() {
     const resp = await fetch('/api/match-segments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bbox, preference, inputCoordinates: inputCoords || undefined })
+      body: JSON.stringify({
+        bbox,
+        preference,
+        inputCoordinates: inputCoords || undefined,
+        center,
+        radiusMiles: radius
+      })
     });
     const data = await resp.json();
     if (!resp.ok) {

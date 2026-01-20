@@ -84,3 +84,16 @@ export function gradeSeries(elevations: number[], distanceMeters: number): numbe
   }
   return grades;
 }
+
+export function maxDistanceFromCenterMeters(
+  coords: Coordinate[],
+  center: { lat: number; lng: number }
+): number {
+  const centerPoint = point([center.lng, center.lat]);
+  let max = 0;
+  for (const coord of coords) {
+    const d = distance(point(coord), centerPoint, { units: 'kilometers' }) * 1000;
+    if (d > max) max = d;
+  }
+  return max;
+}
