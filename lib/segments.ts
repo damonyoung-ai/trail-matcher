@@ -1,4 +1,4 @@
-import { Coordinate, SegmentCandidate, SegmentPreference } from './types';
+import { Coordinate, RouteStats, SegmentCandidate, SegmentPreference } from './types';
 import { computeDistanceMeters, resampleLine } from './geo';
 import { computeRouteStats, scoreRoute } from './matching';
 
@@ -129,4 +129,72 @@ export function sampleStartNodes(trails: { coordinates: Coordinate[] }[], maxNod
     });
   });
   return nodes;
+}
+
+export type RouteCandidate = {
+  id: string;
+  coordinates: Coordinate[];
+  stats: RouteStats;
+  score: ReturnType<typeof scoreRoute>;
+};
+
+export async function findRouteCandidates(
+  graph: Graph,
+  startNodes: Coordinate[],
+  minDistanceMeters: number,
+  maxDistanceMeters: number,
+  getElevations: (coords: Coordinate[]) => Promise<number[]>,
+  inputStats: RouteStats,
+  inputCoords: Coordinate[]
+): Promise<RouteCandidate[]> {
+  const candidates: RouteCandidate[] = [];
+  const maxCandidates = 600;
+  const maxDepth = 220;
+
+  for (const start of startNodes) {
+    if (candidates.length >= maxCandidates) break;
+    const startKey = key(start);
+    const stack: { node: string; path: Coordinate[]; distance: number; depth: number; visited: Set<string> }[] = [
+      { node: startKey, path: [start], distance: 0, depth: 0, visited: new Set([startKey]) }
+    ];
+
+    while (stack.length && candidates.length < maxCandidates) {
+      const current = stack.pop();
+      if (!current) continue;
+      if (current.depth > maxDepth) continue;
+
+      if (current.distance >= minDistanceMeters && current.distance <= maxDistanceMeters) {
+        const elevations = await getElevations(current.path);
+        const stats = computeRouteStats(current.path, elevations);
+        const score = scoreRoute(inputStats, stats, inputCoords, current.path);
+        candidates.push({
+          id: `route-${startKey}-${current.depth}-${candidates.length}`,
+          coordinates: current.path,
+          stats,
+          score
+        });
+        continue;
+      }
+
+      if (current.distance > maxDistanceMeters) continue;
+
+      const edges = graph.get(current.node) || [];
+      edges.slice(0, 4).forEach((edge) => {
+        const nextCoord = edge.coordinates[edge.coordinates.length - 1];
+        const nextKey = key(nextCoord);
+        if (current.visited.has(nextKey)) return;
+        const visited = new Set(current.visited);
+        visited.add(nextKey);
+        stack.push({
+          node: edge.to,
+          path: current.path.concat([nextCoord]),
+          distance: current.distance + edge.length,
+          depth: current.depth + 1,
+          visited
+        });
+      });
+    }
+  }
+
+  return candidates.sort((a, b) => b.score.total - a.score.total).slice(0, 20);
 }

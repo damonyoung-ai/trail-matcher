@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { fetchTrails } from '@/lib/trails';
 import { fetchElevationSamples } from '@/lib/elevation';
-import { computeRouteStats, scoreRoute } from '@/lib/matching';
-import { computeDistanceMeters, maxDistanceFromCenterMeters, resampleLine } from '@/lib/geo';
+import { computeRouteStats } from '@/lib/matching';
+import { maxDistanceFromCenterMeters } from '@/lib/geo';
+import { buildGraph, findRouteCandidates, sampleStartNodes } from '@/lib/segments';
 import { Coordinate, TrailCandidate } from '@/lib/types';
 
 export async function POST(req: Request) {
@@ -30,41 +31,37 @@ export async function POST(req: Request) {
     const inputDistance = inputStats.distanceMeters;
     const inputGain = inputStats.elevation.gain;
     const gainTolerance = gainTolerancePct > 0 ? (inputGain * gainTolerancePct) / 100 : 0;
-    const candidates = radiusFiltered
-      .filter((trail) => {
-        const dist = computeDistanceMeters(trail.coordinates);
-        return dist > inputDistance * 0.8 && dist < inputDistance * 1.2;
-      })
-      .slice(0, 80);
+    const minDistance = inputDistance * 0.8;
+    const maxDistance = inputDistance * 1.2;
+    const graph = buildGraph(radiusFiltered);
+    const startNodes = sampleStartNodes(radiusFiltered, 60);
 
-    const results: TrailCandidate[] = [];
-    for (const trail of candidates) {
-      const trailCoords = resampleLine(trail.coordinates, interval);
-      const elevations = await fetchElevationSamples(trailCoords, interval);
-      const stats = computeRouteStats(trailCoords, elevations);
-      const score = scoreRoute(inputStats, stats, inputCoords, trailCoords);
-      if (gainTolerancePct > 0 && inputGain > 0) {
-        const gainDiff = Math.abs(stats.elevation.gain - inputGain);
-        if (gainDiff > gainTolerance) continue;
-      }
-      results.push({
-        id: trail.id,
-        name: trail.name,
-        coordinates: trailCoords,
-        stats,
-        score
-      });
-    }
+    const stitched = await findRouteCandidates(
+      graph,
+      startNodes,
+      minDistance,
+      maxDistance,
+      (coords) => fetchElevationSamples(coords, interval),
+      inputStats,
+      inputCoords
+    );
 
     const filteredResults =
-      center && radiusMeters > 0
-        ? results.filter((r) => maxDistanceFromCenterMeters(r.coordinates, center) <= radiusMeters)
-        : results;
-    filteredResults.sort((a, b) => b.score.total - a.score.total);
+      gainTolerancePct > 0 && inputGain > 0
+        ? stitched.filter((r) => Math.abs(r.stats.elevation.gain - inputGain) <= gainTolerance)
+        : stitched;
+
+    const results: TrailCandidate[] = filteredResults.map((candidate, idx) => ({
+      id: candidate.id || `route-${idx}`,
+      name: `Stitched route ${idx + 1}`,
+      coordinates: candidate.coordinates,
+      stats: candidate.stats,
+      score: candidate.score
+    }));
 
     return NextResponse.json({
       input: { stats: inputStats, elevations: inputElevations },
-      matches: filteredResults.slice(0, 10)
+      matches: results.slice(0, 10)
     });
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
