@@ -21,7 +21,10 @@ npm run dev
 Open `http://localhost:3000`.
 
 ### Environment
-- No required environment variables for local dev.
+- Required for elevation sampling:
+  - `MAPBOX_ACCESS_TOKEN` (Mapbox access token with access to mapbox.terrain-rgb)
+- Optional:
+  - `MAPBOX_ELEVATION_ZOOM` (default 14)
 
 ## Acceptance checklist
 - [ ] Upload GPX -> see route on map, stats, elevation charts.
