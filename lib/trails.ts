@@ -1,7 +1,11 @@
 import { Coordinate } from './types';
 import { hashCoordinates } from './geo';
 
-const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+const OVERPASS_URLS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.nchc.org.tw/api/interpreter'
+];
 const trailCache = new Map<string, TrailFeature[]>();
 
 export type TrailFeature = {
@@ -22,6 +26,42 @@ export function buildOverpassQuery(bbox: [number, number, number, number]) {
   );out body;>;out skel qt;`;
 }
 
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function fetchOverpass(query: string) {
+  const body = `data=${encodeURIComponent(query)}`;
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    for (const url of OVERPASS_URLS) {
+      try {
+        const resp = await fetchWithTimeout(
+          url,
+          { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body },
+          12000
+        );
+        if (resp.ok) return resp;
+        if (resp.status === 429 || resp.status === 502 || resp.status === 503 || resp.status === 504) {
+          lastError = new Error(`Overpass error: ${resp.status}`);
+          continue;
+        }
+        throw new Error(`Overpass error: ${resp.status}`);
+      } catch (err) {
+        lastError = err as Error;
+      }
+    }
+    await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+  }
+  throw lastError || new Error('Overpass error: unknown');
+}
+
 export async function fetchTrails(bbox: [number, number, number, number]) {
   const hash = hashCoordinates([
     [bbox[0], bbox[1]],
@@ -31,14 +71,7 @@ export async function fetchTrails(bbox: [number, number, number, number]) {
   if (cached) return cached;
 
   const query = buildOverpassQuery(bbox);
-  const resp = await fetch(OVERPASS_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `data=${encodeURIComponent(query)}`
-  });
-  if (!resp.ok) {
-    throw new Error(`Overpass error: ${resp.status}`);
-  }
+  const resp = await fetchOverpass(query);
   const data = (await resp.json()) as {
     elements: Array<
       | { type: 'node'; id: number; lat: number; lon: number }
