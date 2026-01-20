@@ -1,0 +1,30 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model TrailCache {
+  id        String   @id @default(cuid())
+  bboxHash  String   @unique
+  geojson   String
+  createdAt DateTime @default(now())
+}
+
+model ElevationCache {
+  id        String   @id @default(cuid())
+  polyHash  String   @unique
+  samples   String
+  createdAt DateTime @default(now())
+}
+
+model UploadRoute {
+  id        String   @id @default(cuid())
+  name      String
+  geojson   String
+  stats     String
+  createdAt DateTime @default(now())
+}

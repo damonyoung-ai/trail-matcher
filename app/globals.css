@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  @apply bg-sandstone-100 text-pine-900 antialiased;
+  background-image:
+    linear-gradient(180deg, rgba(244, 239, 230, 0.9), rgba(244, 239, 230, 0.9)),
+    url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" fill=\"none\"><path d=\"M0 20 C 20 10 40 10 60 20 C 80 30 100 30 120 20\" stroke=\"%23d8ccb6\" stroke-width=\"1.2\"/><path d=\"M0 60 C 20 50 40 50 60 60 C 80 70 100 70 120 60\" stroke=\"%23d8ccb6\" stroke-width=\"1.2\"/><path d=\"M0 100 C 20 90 40 90 60 100 C 80 110 100 110 120 100\" stroke=\"%23d8ccb6\" stroke-width=\"1.2\"/></svg>');
+}
+
+.maplibregl-map {
+  font-family: inherit;
+}
+
+.maplibregl-popup-content {
+  @apply text-sm;
+}
+
+input[type='range'] {
+  accent-color: #5b8fa8;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f4efe6;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c98560;
+  border-radius: 8px;
+}

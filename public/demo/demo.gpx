@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="RouteTwin" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <name>RouteTwin Demo Ridge</name>
+    <trkseg>
+      <trkpt lat="39.7392" lon="-105.021"></trkpt>
+      <trkpt lat="39.742" lon="-105.015"></trkpt>
+      <trkpt lat="39.746" lon="-105.010"></trkpt>
+      <trkpt lat="39.750" lon="-105.004"></trkpt>
+      <trkpt lat="39.754" lon="-105.000"></trkpt>
+      <trkpt lat="39.759" lon="-104.997"></trkpt>
+      <trkpt lat="39.763" lon="-104.993"></trkpt>
+      <trkpt lat="39.767" lon="-104.990"></trkpt>
+      <trkpt lat="39.770" lon="-104.985"></trkpt>
+    </trkseg>
+  </trk>
+</gpx>
